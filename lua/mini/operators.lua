@@ -1040,6 +1040,10 @@ H.replace_do = function(data)
   local is_blockwise_single_cell = submode == H.submode_keys.block and from_line == to_line and from_col == to_col
   local forced_motion = is_blockwise_single_cell and 'v' or submode
 
+  -- Make sure cursor can be on a newline since delete up until paste
+  local cache_virtualedit = vim.o.virtualedit
+  vim.o.virtualedit = 'onemore'
+
   local delete_data =
     { mark_from = mark_from, mark_to = mark_to, submode = forced_motion, mode = data.mode, register = '_' }
   H.do_between_marks('d', delete_data)
@@ -1058,6 +1062,8 @@ H.replace_do = function(data)
   local expr_reg_keys = tmp_register == '=' and (reg_info.regcontents[1] .. '\r') or ''
   local paste_keys = (data.count or 1) .. '"' .. tmp_register .. expr_reg_keys .. (is_edge and 'p' or 'P')
   H.cmd_normal(paste_keys)
+
+  vim.o.virtualedit = cache_virtualedit
 
   -- Restore temporary register data
   vim.fn.setreg(tmp_register, cache_reg_info)
@@ -1142,6 +1148,7 @@ H.apply_content_func = function(content_func, data)
       reindent_linewise = reindent_linewise,
       submode = submode,
     }
+
     H.replace_do(replace_data)
   end)
 end
@@ -1173,7 +1180,14 @@ H.do_between_marks = function(operator, data)
     -- Make sure that outer action is dot-repeatable by cancelling effect of
     -- `d` or dot-repeatable `y`
     local cancel_redo = operator == 'd' or (operator == 'y' and vim.o.cpoptions:find('y') ~= nil)
+
+    -- Make sure cursor can be on a newline on normal mode
+    local cache_virtualedit = vim.o.virtualedit
+    vim.o.virtualedit = 'onemore'
+
     H.cmd_normal(keys, { cancel_redo = cancel_redo })
+
+    vim.o.virtualedit = cache_virtualedit
   end)
 
   vim.o.selection = cache_selection
